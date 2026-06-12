@@ -26,6 +26,9 @@ forensics = [
 ui = [
     "streamlit>=1.38",
 ]
+submission = [
+    "pillow>=10.4",
+]
 
 [project.scripts]
 egc-mcp = "evidencegene.tools.server:main"
