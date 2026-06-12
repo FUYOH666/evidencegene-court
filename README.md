@@ -1,5 +1,13 @@
 # EvidenceGene Court
 
+[![CI](https://github.com/FUYOH666/evidencegene-court/actions/workflows/ci.yml/badge.svg)](https://github.com/FUYOH666/evidencegene-court/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Package manager: uv](https://img.shields.io/badge/deps-uv-de5fe9.svg)](https://github.com/astral-sh/uv)
+[![MCP](https://img.shields.io/badge/protocol-MCP-000.svg)](https://modelcontextprotocol.io/)
+[![Tests](https://img.shields.io/badge/guardrail%20tests-7%2F7-success.svg)](tests/test_attestation.py)
+[![Hackathon](https://img.shields.io/badge/SANS-FIND%20EVIL!%202026-purple.svg)](https://findevil.devpost.com/)
+
 > **Adversarial autonomous DFIR.** A court of AI agents — Prosecutor, Defender,
 > Arbiter — investigates disk and memory evidence through a typed, read-only
 > MCP server. No finding can reach the report without a valid artifact
@@ -9,6 +17,17 @@
 Built for [FIND EVIL!](https://findevil.devpost.com/) (SANS Institute, 2026) —
 the first hackathon for autonomous AI incident response on the
 [SIFT Workstation](https://www.sans.org/tools/sift-workstation).
+
+**Demo video:** [youtu.be/yL7xFhEIhoQ](https://youtu.be/yL7xFhEIhoQ) ·
+**Pattern:** Custom MCP Server + Multi-Agent · **Runs fully local** (no cloud)
+
+![Architecture](docs/submission/architecture.png)
+
+On [DFIR Madness Case 001](https://dfirmadness.com/the-stolen-szechuan-sauce/)
+the court autonomously identified the documented implant `coreupdater.exe` and
+its C2 connection, promoted it to `CONFIRMED` by corroborating memory against
+the disk timeline, and blocked an injected fabricated finding — all on a laptop
+with a local model. See the [accuracy report](docs/ACCURACY_REPORT.md).
 
 ## Why this exists
 
@@ -89,6 +108,25 @@ All tools used (Volatility 3, Sleuth Kit) ship with SIFT. See
 Demo case: [DFIR Madness Case 001 — The Stolen Szechuan Sauce](https://dfirmadness.com/the-stolen-szechuan-sauce/)
 (public, with published ground truth). See [docs/DATASET.md](docs/DATASET.md).
 
+## Project layout
+
+| Path | What |
+|------|------|
+| `src/evidencegene/tools/` | Typed read-only MCP server + forensic wrappers |
+| `src/evidencegene/court/` | Prosecutor/Defender/Arbiter orchestrator + LLM client |
+| `src/evidencegene/attestation/` | FindingSerializer + tiers (the fail-closed gate) |
+| `src/evidencegene/artifacts/` | Artifact store + SHA-256 audit chain |
+| `docs/` | Architecture, dataset, accuracy report, try-it-out |
+| `docs/submission/` | Demo video, diagram, real sample-run logs |
+
+## Documentation
+
+- [Architecture & trust boundaries](docs/ARCHITECTURE.md)
+- [Accuracy report](docs/ACCURACY_REPORT.md)
+- [Dataset](docs/DATASET.md) · [Try it out](docs/TRY_IT_OUT.md)
+- [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Changelog](CHANGELOG.md)
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Built by [Aleksandr Mordvinov](https://github.com/FUYOH666).
+Open source so the DFIR community can build on it.
