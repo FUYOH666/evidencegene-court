@@ -30,6 +30,10 @@ reports/runs/
 *.sqlite3
 *.db
 
+# Personal / local-only notes (not part of the project)
+*.local.md
+notes/
+
 # OS / IDE
 .DS_Store
 .idea/
