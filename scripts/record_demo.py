@@ -56,7 +56,10 @@ def _wrap(text: str, width: int) -> list[str]:
     return out
 
 
-def terminal_frame(lines: list[tuple[str, tuple]], title: str = "sansforensics@sift: ~/evidencegene-court") -> Image.Image:
+def terminal_frame(
+    lines: list[tuple[str, tuple]],
+    title: str = "sansforensics@sift: ~/evidencegene-court",
+) -> Image.Image:
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     # window chrome
