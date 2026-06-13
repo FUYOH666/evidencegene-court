@@ -33,5 +33,13 @@ class Settings(BaseSettings):
     # Artifact responses: rows above this count are summarized, full data stays in store
     preview_rows: int = 12
 
+    # Jury of models (cross-model consensus). CSV; empty -> [llm_model].
+    jury_models: str = ""
+    jury_min_votes: int = 2
+
+    # Reporting
+    enable_pdf: bool = False
+    fixture_dir: Path = Path("reports/fixture")
+
 
 settings = Settings()

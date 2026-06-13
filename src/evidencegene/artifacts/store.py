@@ -180,19 +180,30 @@ class ArtifactStore:
         ]
         return matches[:limit]
 
-    def artifacts_containing(self, needle: str) -> list[tuple[str, str]]:
+    def artifacts_containing(
+        self, needle: str, exclude_sources: frozenset[str] = frozenset()
+    ) -> list[tuple[str, str]]:
         """Return (artifact_id, source) for every artifact whose payload contains needle.
 
         This is how findings are *bound* to evidence: a claim about an entity is
         only publishable if that entity literally appears in stored tool output.
+        ``exclude_sources`` hides whole evidence sources, which powers the
+        counterfactual ablation analysis.
         """
         needle_lower = needle.lower()
         cur = self._conn.execute("SELECT artifact_id, source, payload_json FROM artifacts")
         out = []
         for artifact_id, source, payload in cur.fetchall():
+            if source in exclude_sources:
+                continue
             if needle_lower in payload.lower():
                 out.append((artifact_id, source))
         return out
+
+    def sources(self) -> set[str]:
+        """Distinct evidence source identities recorded so far."""
+        cur = self._conn.execute("SELECT DISTINCT source FROM artifacts")
+        return {r[0] for r in cur.fetchall()}
 
     # -- integrity ----------------------------------------------------------
 

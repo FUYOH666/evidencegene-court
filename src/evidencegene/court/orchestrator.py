@@ -15,7 +15,6 @@ the MCP server exposes), so a run is fully reproducible from the CLI.
 
 import json
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,6 +22,7 @@ from evidencegene.artifacts.store import ArtifactStore
 from evidencegene.attestation import Finding, FindingRejected, FindingSerializer, Tier
 from evidencegene.config import settings
 from evidencegene.court import agents
+from evidencegene.court.binding import bind_claim
 from evidencegene.court.llm import ChatClient
 from evidencegene.tools import forensics
 
@@ -48,26 +48,6 @@ def _project(tool: str, row: dict) -> dict:
     if not cols:
         return row
     return {k: row.get(k) for k in cols if k in row}
-
-
-_RE_FILE = re.compile(r"\b[\w-]+\.(?:exe|dll|sys|bat|ps1|vbs|scr)\b", re.IGNORECASE)
-_RE_IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
-
-
-def _extract_entities(text: str) -> set[str]:
-    """Pull stable entity keys (binary names, IPv4s) for evidence binding.
-
-    Volatility truncates ImageFileName (e.g. 'coreupdater.ex'), while the disk
-    timeline has the full 'coreupdater.exe'. Emitting the extension-less stem
-    lets a claim bind to BOTH sources, which is what unlocks CONFIRMED.
-    """
-    ents: set[str] = set()
-    for m in _RE_FILE.finditer(text):
-        name = m.group(0).lower()
-        ents.add(name)
-        ents.add(name.rsplit(".", 1)[0])  # stem, matches truncated vol names
-    ents |= {m.group(0) for m in _RE_IPV4.finditer(text)}
-    return {e for e in ents if len(e) > 4}
 
 
 # Process lists are small and every entry matters → show them all.
@@ -334,23 +314,17 @@ class Court:
         if proposed_tier == "ABSTAIN":
             return Finding(claim=claim, detail=detail, proposed_tier=Tier.ABSTAIN, agent="arbiter")
 
-        bound: dict[str, str] = {}  # artifact_id -> source
-        for entity in _extract_entities(f"{claim} {detail}"):
-            for artifact_id, source in self._store.artifacts_containing(entity):
-                bound[artifact_id] = source
-        # honor any model refs that are real and broaden coverage
-        for ref in disposition.get("artifact_refs", []):
-            meta = self._store.meta(ref)
-            if meta is not None:
-                bound[ref] = meta.source
-
-        sources = set(bound.values())
-        tier = Tier.CONFIRMED if len(sources) >= 2 else Tier.INFERRED
+        bound = bind_claim(
+            self._store,
+            claim,
+            detail,
+            model_refs=tuple(disposition.get("artifact_refs", [])),
+        )
         return Finding(
             claim=claim,
             detail=detail,
-            artifact_refs=sorted(bound),
-            proposed_tier=tier,
+            artifact_refs=bound.refs,
+            proposed_tier=bound.tier,
             mitre=disposition.get("mitre", []),
             agent="arbiter",
         )

@@ -41,10 +41,11 @@ class ChatClient:
         user: str,
         schema: dict[str, Any],
         schema_name: str = "response",
+        model: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, int]]:
-        """Returns (parsed_json, token_usage)."""
+        """Returns (parsed_json, token_usage). ``model`` overrides the default (jury)."""
         body: dict[str, Any] = {
-            "model": settings.llm_model,
+            "model": model or settings.llm_model,
             "temperature": settings.llm_temperature,
             "messages": [
                 {"role": "system", "content": system},
