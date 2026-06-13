@@ -84,6 +84,34 @@ def cmd_fixture(_: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_redteam(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from evidencegene.redteam import InjectionHarness
+    from evidencegene.redteam.report import write_report
+
+    db = Path(settings.work_dir) / "redteam.sqlite3"
+    audit = Path(settings.work_dir) / "redteam_audit.jsonl"
+    findings = Path(settings.work_dir) / "redteam_findings.jsonl"
+    for p in (db, audit, findings):
+        p.unlink(missing_ok=True)
+    store = ArtifactStore(db, audit)
+    serializer = FindingSerializer(store, findings)
+
+    results = InjectionHarness(store, serializer).run_all()
+    defended = sum(1 for r in results if r.defended)
+    print(f"\n=== Red-team scorecard: {defended}/{len(results)} defended ===")
+    for r in results:
+        mark = "DEFENDED" if r.defended else "BYPASSED"
+        print(f"  [{mark}] {r.payload_id} {r.name} ({r.atlas_id}) — {r.detail}")
+    chain_ok, entries = store.verify_chain()
+    print(f"audit chain: {'VALID' if chain_ok else 'BROKEN'} ({entries} entries)")
+    if args.report:
+        write_report(results, Path(args.report))
+        print(f"report written: {args.report}")
+    return 0 if defended == len(results) else 1
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="egc-court", description="EvidenceGene Court")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -97,6 +125,14 @@ def main() -> None:
     sub.add_parser("fixture", help="generate the synthetic mini-fixture").set_defaults(
         func=cmd_fixture
     )
+
+    rt = sub.add_parser("redteam", help="run the injection harness against the defender")
+    rt.add_argument(
+        "--report",
+        default="docs/REDTEAM_REPORT.md",
+        help="path to write the markdown scorecard (default: docs/REDTEAM_REPORT.md)",
+    )
+    rt.set_defaults(func=cmd_redteam)
 
     inv = sub.add_parser("investigate", help="run a full court investigation")
     inv.add_argument("--memory", help="path to memory image")
