@@ -76,6 +76,15 @@ class JuryCourt:
 
         result.votes = {ent: len(jurors) for ent, jurors in entity_jurors.items()}
 
+        top_votes = max(result.votes.values(), default=0)
+        if top_votes < settings.jury_min_votes:
+            logger.info(
+                "no entity reached the consensus threshold (top=%d, min_votes=%d); "
+                "publishing nothing",
+                top_votes,
+                settings.jury_min_votes,
+            )
+
         # Publish consensus entities (votes >= jury_min_votes), deduped by finding.
         published_claims: set[str] = set()
         for ent, votes in sorted(result.votes.items(), key=lambda kv: -kv[1]):

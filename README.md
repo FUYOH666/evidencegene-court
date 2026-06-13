@@ -18,7 +18,7 @@ Built for [FIND EVIL!](https://findevil.devpost.com/) (SANS Institute, 2026) —
 the first hackathon for autonomous AI incident response on the
 [SIFT Workstation](https://www.sans.org/tools/sift-workstation).
 
-**Demo video:** [youtu.be/yL7xFhEIhoQ](https://youtu.be/yL7xFhEIhoQ) ·
+**Demo video:** [youtu.be/HerCqv_LA3Q](https://youtu.be/HerCqv_LA3Q) ·
 **Pattern:** Custom MCP Server + Multi-Agent · **Runs fully local** (no cloud)
 
 ![Architecture](docs/submission/architecture.png)

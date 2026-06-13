@@ -44,6 +44,27 @@ Outputs land in `reports/runs/`:
 - `audit_chain.jsonl` — SHA-256-chained log of tools, agent messages, verdicts
 - `findings.jsonl` — published findings with tiers and source-backed refs
 
+## A-fast. 30-second offline path (no 4.6 GB download, no LLM)
+
+To evaluate the architecture and the v0.2 adversarial layers immediately, build
+the synthetic mini-fixture and run the deterministic modules against it:
+
+```bash
+uv run egc-court fixture        # synthetic two-source case with a planted implant
+uv run egc-court redteam        # 6/6 injection attacks defended (MITRE ATLAS)
+
+# point the analysis at the fixture store
+export EGC_ARTIFACT_DB=reports/fixture/artifacts.sqlite3
+export EGC_AUDIT_LOG=reports/fixture/audit_chain.jsonl
+export EGC_FINDINGS_LOG=reports/fixture/findings.jsonl
+uv run egc-court ablate         # CONFIRMED collapses when a source is removed
+uv run egc-court report --html report.html   # self-contained HTML report
+uv run egc-court verify         # audit chain VALID
+```
+
+This requires neither evidence images nor a running LLM, so judges can verify
+the guardrails and audit trail in seconds.
+
 ## B. As an MCP server (Claude Code / OpenClaw / Cursor)
 
 ```bash

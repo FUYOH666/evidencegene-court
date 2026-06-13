@@ -24,7 +24,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("sift-gene-mcp")
-_store = ArtifactStore(settings.artifact_db, settings.audit_log)
+
+_STORE: ArtifactStore | None = None
+
+
+def store() -> ArtifactStore:
+    """Lazily create the artifact store so importing this module is side-effect-free.
+
+    Introspecting the tool surface (e.g. the red-team spoliation check) must not
+    create files; the store is only built when a tool actually runs.
+    """
+    global _STORE
+    if _STORE is None:
+        _STORE = ArtifactStore(settings.artifact_db, settings.audit_log)
+    return _STORE
 
 
 class ToolResult(BaseModel):
@@ -52,49 +65,49 @@ def _result(rows: list[dict], rec) -> ToolResult:
 @mcp.tool()
 def verify_image_integrity(image_path: str, source: str) -> ToolResult:
     """Hash an evidence image (sha256/md5) for chain-of-custody. Run this first."""
-    rows, rec = forensics.verify_image_integrity(_store, image_path, source)
+    rows, rec = forensics.verify_image_integrity(store(), image_path, source)
     return _result(rows, rec)
 
 
 @mcp.tool()
 def vol_pslist(image_path: str, source: str) -> ToolResult:
     """Volatility3 windows.pslist — processes from the active process list."""
-    rows, rec = forensics.vol_pslist(_store, image_path, source)
+    rows, rec = forensics.vol_pslist(store(), image_path, source)
     return _result(rows, rec)
 
 
 @mcp.tool()
 def vol_psscan(image_path: str, source: str) -> ToolResult:
     """Volatility3 windows.psscan — pool-scanned processes (finds hidden/terminated)."""
-    rows, rec = forensics.vol_psscan(_store, image_path, source)
+    rows, rec = forensics.vol_psscan(store(), image_path, source)
     return _result(rows, rec)
 
 
 @mcp.tool()
 def vol_netscan(image_path: str, source: str) -> ToolResult:
     """Volatility3 windows.netscan — network connections and listeners from memory."""
-    rows, rec = forensics.vol_netscan(_store, image_path, source)
+    rows, rec = forensics.vol_netscan(store(), image_path, source)
     return _result(rows, rec)
 
 
 @mcp.tool()
 def vol_cmdline(image_path: str, source: str) -> ToolResult:
     """Volatility3 windows.cmdline — process command lines from memory."""
-    rows, rec = forensics.vol_cmdline(_store, image_path, source)
+    rows, rec = forensics.vol_cmdline(store(), image_path, source)
     return _result(rows, rec)
 
 
 @mcp.tool()
 def vol_malfind(image_path: str, source: str) -> ToolResult:
     """Volatility3 windows.malfind — injected/suspicious executable memory regions."""
-    rows, rec = forensics.vol_malfind(_store, image_path, source)
+    rows, rec = forensics.vol_malfind(store(), image_path, source)
     return _result(rows, rec)
 
 
 @mcp.tool()
 def disk_partitions(image_path: str, source: str) -> ToolResult:
     """Sleuth Kit mmls — partition table of a disk image (E01/raw)."""
-    rows, rec = forensics.disk_partitions(_store, image_path, source)
+    rows, rec = forensics.disk_partitions(store(), image_path, source)
     return _result(rows, rec)
 
 
@@ -107,7 +120,7 @@ def disk_file_timeline(
     Use path_filter (substring) to focus, e.g. 'Windows/Prefetch' or 'Users'.
     """
     rows, rec = forensics.disk_file_timeline(
-        _store, image_path, source, sector_offset, path_filter
+        store(), image_path, source, sector_offset, path_filter
     )
     return _result(rows, rec)
 
@@ -115,7 +128,7 @@ def disk_file_timeline(
 @mcp.tool()
 def cross_validate_processes(pslist_artifact: str, psscan_artifact: str) -> ToolResult:
     """Compare pslist vs psscan artifacts; returns ghost processes (hidden candidates)."""
-    rows, rec = forensics.cross_validate_processes(_store, pslist_artifact, psscan_artifact)
+    rows, rec = forensics.cross_validate_processes(store(), pslist_artifact, psscan_artifact)
     return _result(rows, rec)
 
 
@@ -125,14 +138,14 @@ def artifact_query(
 ) -> list[dict]:
     """Page through or search the full rows of a previously recorded artifact."""
     if search:
-        return _store.search_rows(artifact_id, search, limit)
-    return _store.rows(artifact_id, offset, limit)
+        return store().search_rows(artifact_id, search, limit)
+    return store().rows(artifact_id, offset, limit)
 
 
 @mcp.tool()
 def verify_audit_chain() -> dict:
     """Replay the SHA-256 audit chain; proves the investigation log is untampered."""
-    ok, count = _store.verify_chain()
+    ok, count = store().verify_chain()
     return {"chain_valid": ok, "entries": count}
 
 
