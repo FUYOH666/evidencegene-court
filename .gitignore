@@ -27,6 +27,8 @@ build/
 
 # Runtime artifacts (regenerated per case)
 reports/runs/
+reports/fixture/
+reports/cmp7b/
 *.sqlite3
 *.db
 

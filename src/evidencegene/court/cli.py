@@ -72,6 +72,18 @@ def cmd_verify(_: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_fixture(_: argparse.Namespace) -> int:
+    from evidencegene.fixture import build
+
+    store, serializer = build()
+    ok, entries = store.verify_chain()
+    print(
+        f"fixture: {settings.fixture_dir}  (audit chain {'VALID' if ok else 'BROKEN'}, "
+        f"{entries} entries, {len(serializer.published())} findings)"
+    )
+    return 0 if ok else 1
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="egc-court", description="EvidenceGene Court")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -81,6 +93,9 @@ def main() -> None:
     )
     sub.add_parser("verify", help="replay and verify the audit chain").set_defaults(
         func=cmd_verify
+    )
+    sub.add_parser("fixture", help="generate the synthetic mini-fixture").set_defaults(
+        func=cmd_fixture
     )
 
     inv = sub.add_parser("investigate", help="run a full court investigation")
