@@ -109,6 +109,25 @@ def cmd_ablate(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from evidencegene.analysis import ablate
+    from evidencegene.report.render import render_html, write_report
+
+    store, serializer = _store_and_serializer()
+    findings = serializer.published()
+    ablation = ablate(store, findings)
+    html_text = render_html(
+        store, findings, ablation=ablation, audit_path=Path(settings.audit_log)
+    )
+    write_report(html_text, Path(args.html))
+    print(f"report written: {args.html} ({len(findings)} findings)")
+    if settings.enable_pdf:
+        print(f"pdf (if WeasyPrint installed): {Path(args.html).with_suffix('.pdf')}")
+    return 0
+
+
 def cmd_jury(args: argparse.Namespace) -> int:
     from evidencegene.court.jury import JuryCourt, jury_models
 
@@ -179,6 +198,12 @@ def main() -> None:
     sub.add_parser(
         "ablate", help="counterfactual ablation: remove a source, watch CONFIRMED collapse"
     ).set_defaults(func=cmd_ablate)
+
+    rp = sub.add_parser("report", help="render a self-contained HTML incident report")
+    rp.add_argument(
+        "--html", default="docs/submission/report.html", help="output HTML path"
+    )
+    rp.set_defaults(func=cmd_report)
 
     jr = sub.add_parser("jury", help="run the court across multiple models (consensus)")
     jr.add_argument("--memory", help="path to memory image")
