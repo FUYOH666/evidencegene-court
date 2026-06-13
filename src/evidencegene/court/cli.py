@@ -84,6 +84,31 @@ def cmd_fixture(_: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_ablate(_: argparse.Namespace) -> int:
+    from evidencegene.analysis import ablate
+
+    store, serializer = _store_and_serializer()
+    published = serializer.published()
+    rows = ablate(store, published)
+    confirmed = [f for f in published if str(f.tier) == "CONFIRMED"]
+    print(f"\n=== Counterfactual ablation: {len(confirmed)} CONFIRMED finding(s) ===")
+    if not rows:
+        print("  (no CONFIRMED findings to ablate)")
+    for r in rows:
+        mark = "COLLAPSED" if r.collapsed else "HELD"
+        print(
+            f"  [{mark}] remove {r.removed_source}: {r.original_tier} -> "
+            f"{r.resulting_tier}  ::  {r.claim[:60]}"
+        )
+    all_collapse = all(r.collapsed for r in rows) if rows else True
+    print(
+        "\nResult: every CONFIRMED finding depends on cross-source corroboration."
+        if all_collapse
+        else "\nResult: some CONFIRMED findings survived ablation (single-source over-grant?)."
+    )
+    return 0
+
+
 def cmd_redteam(args: argparse.Namespace) -> int:
     from pathlib import Path
 
@@ -125,6 +150,10 @@ def main() -> None:
     sub.add_parser("fixture", help="generate the synthetic mini-fixture").set_defaults(
         func=cmd_fixture
     )
+
+    sub.add_parser(
+        "ablate", help="counterfactual ablation: remove a source, watch CONFIRMED collapse"
+    ).set_defaults(func=cmd_ablate)
 
     rt = sub.add_parser("redteam", help="run the injection harness against the defender")
     rt.add_argument(
