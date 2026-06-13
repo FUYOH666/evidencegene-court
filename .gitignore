@@ -25,10 +25,9 @@ __pycache__/
 dist/
 build/
 
-# Runtime artifacts (regenerated per case)
-reports/runs/
-reports/fixture/
-reports/cmp7b/
+# Runtime artifacts (regenerated per case). Committed sample logs live under
+# docs/submission/, not here.
+reports/
 *.sqlite3
 *.db
 
