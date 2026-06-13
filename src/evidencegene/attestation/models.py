@@ -30,3 +30,5 @@ class PublishedFinding(Finding):
     tier: Tier  # tier actually granted by the serializer (may be downgraded)
     published_at: str
     sources: list[str] = Field(default_factory=list)
+    jury_votes: int = Field(default=0, description="How many juror models proposed this entity")
+    jury_size: int = Field(default=0, description="Total jurors that voted")

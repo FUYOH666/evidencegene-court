@@ -36,7 +36,9 @@ class FindingSerializer:
         self._path = findings_path
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
-    def publish(self, finding: Finding) -> PublishedFinding:
+    def publish(
+        self, finding: Finding, jury_votes: int = 0, jury_size: int = 0
+    ) -> PublishedFinding:
         invalid = [ref for ref in finding.artifact_refs if not self._store.exists(ref)]
         if invalid:
             self._reject(finding, f"unknown artifact_refs: {invalid}")
@@ -58,6 +60,8 @@ class FindingSerializer:
             tier=tier,
             published_at=datetime.now(UTC).isoformat(),
             sources=sources,
+            jury_votes=jury_votes,
+            jury_size=jury_size,
         )
         with self._path.open("a", encoding="utf-8") as f:
             f.write(published.model_dump_json() + "\n")

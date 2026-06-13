@@ -109,6 +109,31 @@ def cmd_ablate(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_jury(args: argparse.Namespace) -> int:
+    from evidencegene.court.jury import JuryCourt, jury_models
+
+    models = [m.strip() for m in args.models.split(",") if m.strip()] if args.models else None
+    store, serializer = _store_and_serializer()
+    court = JuryCourt(store, serializer, models=models)
+    case = CaseInput(
+        memory_image=args.memory,
+        memory_source=args.source,
+        disk_image=args.disk,
+        disk_source=args.disk_source,
+        disk_offset=args.disk_offset,
+    )
+    result = court.investigate(case)
+    used = models or jury_models()
+    print(f"\n=== Jury verdict ({result.jury_size} jurors: {', '.join(used)}) ===")
+    print("Votes per entity:")
+    for ent, votes in sorted(result.votes.items(), key=lambda kv: -kv[1]):
+        print(f"  {votes}/{result.jury_size}  {ent}")
+    print(f"\nConsensus findings (>= {settings.jury_min_votes} votes): {len(result.published)}")
+    for f in result.published:
+        print(f"  [{f.tier}] ({f.jury_votes}/{f.jury_size}) {f.claim[:70]}")
+    return 0
+
+
 def cmd_redteam(args: argparse.Namespace) -> int:
     from pathlib import Path
 
@@ -154,6 +179,15 @@ def main() -> None:
     sub.add_parser(
         "ablate", help="counterfactual ablation: remove a source, watch CONFIRMED collapse"
     ).set_defaults(func=cmd_ablate)
+
+    jr = sub.add_parser("jury", help="run the court across multiple models (consensus)")
+    jr.add_argument("--memory", help="path to memory image")
+    jr.add_argument("--source", default="memory:host", help="memory evidence source id")
+    jr.add_argument("--disk", help="path to disk image (E01/raw)")
+    jr.add_argument("--disk-source", default="disk:host", help="disk evidence source id")
+    jr.add_argument("--disk-offset", type=int, default=0, help="partition sector offset")
+    jr.add_argument("--models", default="", help="CSV of model ids (default: EGC_JURY_MODELS)")
+    jr.set_defaults(func=cmd_jury)
 
     rt = sub.add_parser("redteam", help="run the injection harness against the defender")
     rt.add_argument(

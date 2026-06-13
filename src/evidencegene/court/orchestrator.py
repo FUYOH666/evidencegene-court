@@ -96,74 +96,19 @@ class Court:
 
     def investigate(self, case: CaseInput) -> RunResult:
         result = RunResult()
-        tool_summaries = self._collect(case, result)
-
-        prosecutor_out, usage = self._llm.complete_json(
-            agents.PROSECUTOR_SYSTEM,
-            self._evidence_prompt(tool_summaries),
-            agents.PROSECUTOR_SCHEMA,
-            "prosecutor",
-        )
-        self._store.append_event(
-            {"type": "agent_message", "agent": "prosecutor", "token_usage": usage,
-             "payload": prosecutor_out}
-        )
-        findings = prosecutor_out.get("findings", [])
-
-        for iteration in range(settings.max_iterations):
-            result.iterations = iteration + 1
-
-            defender_out, usage = self._llm.complete_json(
-                agents.DEFENDER_SYSTEM,
-                f"Findings to challenge:\n{json.dumps(findings, indent=2)}",
-                agents.DEFENDER_SCHEMA,
-                "defender",
-            )
-            self._store.append_event(
-                {"type": "agent_message", "agent": "defender", "token_usage": usage,
-                 "payload": defender_out}
-            )
-
-            arbiter_out, usage = self._llm.complete_json(
-                agents.ARBITER_SYSTEM,
-                f"Prosecutor findings:\n{json.dumps(findings, indent=2)}\n\n"
-                f"Defender verdicts:\n{json.dumps(defender_out.get('verdicts', []), indent=2)}",
-                agents.ARBITER_SCHEMA,
-                "arbiter",
-            )
-            self._store.append_event(
-                {"type": "agent_message", "agent": "arbiter", "token_usage": usage,
-                 "payload": arbiter_out}
-            )
-            dispositions = self._reconcile(
-                findings, defender_out.get("verdicts", []), arbiter_out.get("dispositions", [])
-            )
-
-            follow_ups = [d for d in dispositions if d.get("need_more_evidence")]
-            if follow_ups and iteration < settings.max_iterations - 1:
-                self._run_follow_ups(follow_ups, case, tool_summaries, result)
-                # re-prosecute with the enlarged evidence set
-                prosecutor_out, usage = self._llm.complete_json(
-                    agents.PROSECUTOR_SYSTEM,
-                    self._evidence_prompt(tool_summaries),
-                    agents.PROSECUTOR_SCHEMA,
-                    "prosecutor",
-                )
-                self._store.append_event(
-                    {"type": "agent_message", "agent": "prosecutor",
-                     "token_usage": usage, "payload": prosecutor_out}
-                )
-                findings = prosecutor_out.get("findings", [])
-                continue
-
-            self._publish(dispositions, result)
-            break
-
+        summaries = self.collect(case)
+        result.artifacts = [s["artifact_id"] for s in summaries if s.get("artifact_id")]
+        dispositions, iterations = self.trial(summaries, case)
+        result.iterations = iterations
+        self._publish(dispositions, result)
         return result
 
-    # -- phases -------------------------------------------------------------
+    def collect(self, case: CaseInput) -> list[dict]:
+        """Phase 1: run the read-only tool sweep. Deterministic, no LLM.
 
-    def _collect(self, case: CaseInput, result: RunResult) -> list[dict]:
+        Separated from the trial so a jury can collect evidence once and then
+        run the LLM court multiple times (once per juror model).
+        """
         summaries: list[dict] = []
         if case.memory_image:
             for fn in (
@@ -173,7 +118,7 @@ class Court:
                 forensics.vol_netscan,
             ):
                 summaries.append(self._safe_tool(fn, case.memory_image, case.memory_source))
-            self._cross_validate(summaries, result)
+            self._cross_validate(summaries)
         if case.disk_image:
             summaries.append(
                 self._safe_tool(
@@ -181,8 +126,85 @@ class Court:
                 )
             )
             self._collect_disk_timeline(case, summaries)
-        result.artifacts = [s["artifact_id"] for s in summaries if s.get("artifact_id")]
         return summaries
+
+    def trial(
+        self, summaries: list[dict], case: CaseInput, model: str | None = None
+    ) -> tuple[list[dict], int]:
+        """Phase 2: the LLM court. Returns (dispositions, iterations_used).
+
+        ``model`` overrides the default LLM (used by the jury). A copy of
+        ``summaries`` is taken so concurrent jurors do not interfere.
+        """
+        summaries = list(summaries)
+        iterations = 0
+
+        prosecutor_out, usage = self._llm.complete_json(
+            agents.PROSECUTOR_SYSTEM,
+            self._evidence_prompt(summaries),
+            agents.PROSECUTOR_SCHEMA,
+            "prosecutor",
+            model=model,
+        )
+        self._store.append_event(
+            {"type": "agent_message", "agent": "prosecutor", "model": model,
+             "token_usage": usage, "payload": prosecutor_out}
+        )
+        findings = prosecutor_out.get("findings", [])
+        dispositions: list[dict] = []
+
+        for iteration in range(settings.max_iterations):
+            iterations = iteration + 1
+
+            defender_out, usage = self._llm.complete_json(
+                agents.DEFENDER_SYSTEM,
+                f"Findings to challenge:\n{json.dumps(findings, indent=2)}",
+                agents.DEFENDER_SCHEMA,
+                "defender",
+                model=model,
+            )
+            self._store.append_event(
+                {"type": "agent_message", "agent": "defender", "model": model,
+                 "token_usage": usage, "payload": defender_out}
+            )
+
+            arbiter_out, usage = self._llm.complete_json(
+                agents.ARBITER_SYSTEM,
+                f"Prosecutor findings:\n{json.dumps(findings, indent=2)}\n\n"
+                f"Defender verdicts:\n{json.dumps(defender_out.get('verdicts', []), indent=2)}",
+                agents.ARBITER_SCHEMA,
+                "arbiter",
+                model=model,
+            )
+            self._store.append_event(
+                {"type": "agent_message", "agent": "arbiter", "model": model,
+                 "token_usage": usage, "payload": arbiter_out}
+            )
+            dispositions = self._reconcile(
+                findings, defender_out.get("verdicts", []), arbiter_out.get("dispositions", [])
+            )
+
+            follow_ups = [d for d in dispositions if d.get("need_more_evidence")]
+            if follow_ups and iteration < settings.max_iterations - 1:
+                self._run_follow_ups(follow_ups, case, summaries)
+                prosecutor_out, usage = self._llm.complete_json(
+                    agents.PROSECUTOR_SYSTEM,
+                    self._evidence_prompt(summaries),
+                    agents.PROSECUTOR_SCHEMA,
+                    "prosecutor",
+                    model=model,
+                )
+                self._store.append_event(
+                    {"type": "agent_message", "agent": "prosecutor", "model": model,
+                     "token_usage": usage, "payload": prosecutor_out}
+                )
+                findings = prosecutor_out.get("findings", [])
+                continue
+            break
+
+        return dispositions, iterations
+
+    # -- phases -------------------------------------------------------------
 
     def _collect_disk_timeline(self, case: CaseInput, summaries: list[dict]) -> None:
         """Partition the disk, then build a focused file timeline for the NTFS slot.
@@ -224,7 +246,7 @@ class Court:
         best = max(ntfs, key=lambda p: int(str(p.get("length", "0")) or 0))
         return int(str(best.get("start", "0")) or 0)
 
-    def _cross_validate(self, summaries: list[dict], result: RunResult) -> None:
+    def _cross_validate(self, summaries: list[dict]) -> None:
         by_tool = {s.get("tool"): s.get("artifact_id") for s in summaries}
         if by_tool.get("vol_pslist") and by_tool.get("vol_psscan"):
             rows, rec = forensics.cross_validate_processes(
@@ -233,7 +255,7 @@ class Court:
             summaries.append(self._summarize(rows, rec))
 
     def _run_follow_ups(
-        self, follow_ups: list[dict], case: CaseInput, summaries: list[dict], result: RunResult
+        self, follow_ups: list[dict], case: CaseInput, summaries: list[dict]
     ) -> None:
         # Bounded set of extra tools the arbiter may request, keyed by intent.
         for fu in follow_ups:
