@@ -73,6 +73,23 @@ Defender (explain it away) forces contradictions into the open; the Arbiter can
 only resolve them by requesting more evidence or abstaining. ABSTAIN is a
 first-class outcome, not a failure.
 
+## v0.2 adversarial layers
+
+- **Injection Harness (red-team).** Mirrors GTG-1002 by attacking our own
+  defender. Each payload maps to a MITRE ATLAS technique and targets a specific
+  boundary above; the harness asserts the boundary holds and logs a
+  `redteam_attempt` to the audit chain. This makes "tested for bypass" a
+  reproducible artifact, not a claim. See [ATLAS_MAPPING.md](ATLAS_MAPPING.md).
+- **Counterfactual ablation.** Re-runs evidence binding with one source hidden
+  (`ArtifactStore.artifacts_containing(exclude_sources=...)`). If a CONFIRMED
+  finding does not collapse, the tier was over-granted — a self-check on
+  boundary #5.
+- **Jury of models.** Evidence is collected once (deterministic); the LLM court
+  runs per juror via `Court.trial(model=...)`. Consensus is computed from
+  per-juror entity votes. A juror that raises `LLMError` abstains, so the panel
+  degrades gracefully (bounded by the same architectural guarantees — a juror
+  cannot publish an unbacked finding either).
+
 ## Reproducibility
 
 The orchestrator calls the same typed functions the MCP server exposes, so a CLI

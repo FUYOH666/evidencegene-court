@@ -75,6 +75,28 @@ except FindingRejected as e:
 > serializer fail-closes. This is not a prompt rule the model can ignore —
 > the rejection happens at the API boundary, and it is logged."
 
+## Scene 4b — v0.2: attack the defender + jury (optional, +0:40)
+
+Visual: terminal.
+
+```bash
+# GTG-1002 mirror: autonomously attack our OWN defender
+uv run egc-court redteam        # -> 6/6 defended, each mapped to MITRE ATLAS
+
+# falsifiability: remove a source, watch CONFIRMED collapse
+uv run egc-court ablate         # -> coreupdater.exe CONFIRMED -> INFERRED
+
+# jury of local models: promote only cross-model consensus
+uv run egc-court jury --memory cases/case001/citadeldc01.mem --source memory:dc01
+```
+
+> "We don't just defend — we attack our own defender. The injection harness is
+> the GTG-1002 mirror: six attacks mapped to MITRE ATLAS, six defended, each
+> logged. Ablation proves findings are falsifiable: pull one source and the
+> CONFIRMED tier collapses. And a jury of local models promotes only what they
+> agree on — when one juror overflowed, it abstained instead of crashing the
+> panel."
+
 ## Scene 5 — Audit trail + close (4:00–4:30)
 
 Visual: terminal.

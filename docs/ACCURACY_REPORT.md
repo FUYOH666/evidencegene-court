@@ -103,3 +103,41 @@ property of the architecture; finding quality scales with the model.
 
 Raw logs: `docs/submission/sample-run/` (35B) and the `reports/cmp7b/` run
 reproducible via `EGC_LLM_MODEL=qwen2.5-coder-7b-instruct-mlx`.
+
+## v0.2 — adversarial validation (red-team, ablation, jury)
+
+### Red-team: attacking our own defender (GTG-1002 mirror)
+
+`egc-court redteam` runs 6 deterministic attacks against the defender, each
+mapped to a MITRE ATLAS technique (see [ATLAS_MAPPING.md](ATLAS_MAPPING.md)).
+Latest scorecard: **6/6 defended** ([REDTEAM_REPORT.md](REDTEAM_REPORT.md)).
+Attacks: evidence-free claim, fabricated reference, single-source tier forgery,
+instruction smuggled in tool output, prompt-injection via filename, and
+verification that no destructive tool exists on the MCP surface. Every attempt
+is logged as a `redteam_attempt` event in the audit chain.
+
+### Counterfactual ablation: findings are falsifiable
+
+`egc-court ablate` recomputes each CONFIRMED finding's tier with one evidence
+source removed. On Case 001:
+
+- Remove `disk:dc01` → `coreupdater.exe` CONFIRMED collapses to INFERRED.
+- Remove `memory:dc01` → CONFIRMED collapses to INFERRED.
+
+Every CONFIRMED finding depends on cross-source corroboration; the tier is a
+property of the evidence, not of model confidence.
+
+### Jury of models: cross-model consensus and resilience
+
+`egc-court jury` collects evidence once, then runs the court once per juror
+model and promotes only entities that meet `jury_min_votes`. The consensus
+mechanism is validated offline (3 jurors, `tests/test_jury.py`): the majority
+entity is promoted to CONFIRMED, the minority entity is dropped.
+
+A real two-juror run on Case 001 memory (`qwen3.6-35b` + `qwen2.5-coder-7b`)
+demonstrated panel **resilience**: the 7B juror's context window overflowed on
+the memory evidence, so it **abstained** (logged as a `jury_ballot` with
+`abstained: true`) while the 35B juror still surfaced the C2 address
+`203.78.103.109`. A flaky or under-provisioned juror does not crash the panel —
+it simply does not vote. Lesson documented: heterogeneous local jurors should
+have comparable context windows for full-evidence cases.

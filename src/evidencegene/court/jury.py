@@ -13,6 +13,7 @@ from evidencegene.artifacts.store import ArtifactStore
 from evidencegene.attestation import Finding, FindingRejected, FindingSerializer
 from evidencegene.config import settings
 from evidencegene.court.binding import bind_claim, extract_entities
+from evidencegene.court.llm import LLMError
 from evidencegene.court.orchestrator import CaseInput, Court
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,17 @@ class JuryCourt:
         entity_claim: dict[str, dict] = {}
 
         for model in self._models:
-            dispositions, _ = self._court.trial(summaries, case, model=model)
+            try:
+                dispositions, _ = self._court.trial(summaries, case, model=model)
+            except LLMError as exc:
+                # A juror that errors (e.g. small context window) simply abstains;
+                # the panel is resilient to a single flaky model.
+                logger.warning("juror %s abstained: %s", model, exc)
+                self._store.append_event(
+                    {"type": "jury_ballot", "model": model, "abstained": True,
+                     "error": str(exc)[:200]}
+                )
+                continue
             seen_entities: set[str] = set()
             for d in dispositions:
                 claim = d.get("claim", "")

@@ -79,6 +79,27 @@ Security boundaries — all **architectural**, none prompt-based:
 | Runaway loops | Hard `max_iterations` cap in the court orchestrator |
 | Tamper evidence | Append-only JSONL with SHA-256 hash chain; `verify_audit_chain` replay |
 
+## v0.2 — Red-team, Ablation, Jury
+
+Three additions push past "typed MCP + anti-hallucination" (now table stakes):
+
+- **Injection Harness (`egc-court redteam`)** — the GTG-1002 mirror. Autonomously
+  attacks our own defender with 6 payloads mapped to MITRE ATLAS, and proves each
+  is neutralized architecturally (latest: 6/6 defended). Directly answers the
+  judging criterion "are guardrails architectural or prompt-based — tested for
+  bypass?". See [docs/ATLAS_MAPPING.md](docs/ATLAS_MAPPING.md).
+- **Counterfactual Ablation (`egc-court ablate`)** — remove one evidence source
+  and watch CONFIRMED collapse to INFERRED. Findings are falsifiable; the tier is
+  earned by the evidence, not asserted by the model.
+- **Jury of Models (`egc-court jury`)** — collect evidence once, run the court per
+  juror model, promote only cross-model consensus. Resilient: a juror that errors
+  abstains instead of crashing the panel.
+
+Plus an ATT&CK kill-chain timeline and a self-contained HTML report
+(`egc-court report`). Everything new is deterministic and offline-testable; only
+the jury spends (local) LLM calls. A synthetic mini-fixture (`egc-court fixture`)
+runs the whole pipeline in milliseconds without evidence images.
+
 ## Quick start
 
 ```bash

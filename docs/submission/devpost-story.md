@@ -93,6 +93,26 @@ Guardrails must not depend on model quality. When we swapped a 35B model for a
 Accuracy is a property of the architecture; eloquence is a property of the
 model.
 
+### Going further: we attack our own defender (v0.2)
+
+The hackathon asks whether guardrails are architectural or prompt-based, and
+whether they were tested for bypass. So we built three adversarial layers:
+
+- **Injection Harness (`egc-court redteam`)** — the GTG-1002 mirror. It
+  autonomously attacks our own defender with six payloads (evidence-free claim,
+  fabricated reference, single-source tier forgery, instruction smuggled inside
+  tool output, prompt-injection via a malicious filename, destructive-tool
+  surface check), each mapped to a MITRE ATLAS technique. Latest build: 6/6
+  defended, every attempt logged to the audit chain.
+- **Counterfactual Ablation (`egc-court ablate`)** — remove one evidence source
+  and watch a CONFIRMED finding collapse to INFERRED. On the Szechuan case,
+  removing either memory or disk collapses the implant finding, proving the tier
+  is earned by cross-source corroboration, not asserted by the model.
+- **Jury of Models (`egc-court jury`)** — collect evidence once, run the court
+  per local model, promote only cross-model consensus. When a small-context
+  juror overflowed on real memory evidence it abstained instead of crashing the
+  panel; the architectural guarantees still bound every juror.
+
 ### What's next
 
 - Wrap more SIFT tools (Plaso timelines, EZ Tools registry/prefetch parsers).
@@ -103,4 +123,4 @@ model.
 ## Built with
 
 `python` · `uv` · `mcp` · `pydantic` · `volatility3` · `sleuthkit` · `sqlite`
-· `httpx` · `lm-studio` · `qwen` · `github-actions`
+· `httpx` · `lm-studio` · `qwen` · `mitre-attack` · `mitre-atlas` · `github-actions`
